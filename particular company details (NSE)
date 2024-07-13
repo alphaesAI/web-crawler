@@ -1,0 +1,65 @@
+import pandas as pd
+import numpy as np
+import yfinance as yf
+import matplotlib.pyplot as plt
+from datetime import date
+import warnings
+warnings.filterwarnings('ignore')
+
+class StockScreener:
+    def __init__(self, stockTickers, indexTicker, rfRate=0.0, tradingDays=252):
+        self.stockTickers = stockTickers
+        self.indexTicker = indexTicker
+        self.rfRate = rfRate
+        self.tradingDays = tradingDays
+        self.spotData = None
+        self.indexData = None
+        self.additionalData = {}
+
+    def ImportData(self):
+        self.spotData = yf.download(self.stockTickers, period='max', progress=False).fillna(method='bfill')
+        self.indexData = yf.download(self.indexTicker, period='max', progress=False).fillna(method='bfill')
+        
+        # Renaming columns for the index data
+        self.indexData = self.indexData.rename(columns={'Open': 'Index Open', 'High': 'Index High', 'Low': 'Index Low', 'Close': 'Index Close', 'Adj Close': 'Index Adj Close', 'Volume': 'Index Volume'})
+        
+        # Joining DataFrames
+        self.spotData = self.spotData.join(self.indexData[['Index Open', 'Index High', 'Index Low', 'Index Close', 'Index Adj Close', 'Index Volume']])
+
+    def FetchAdditionalData(self):
+        for ticker in self.stockTickers:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            self.additionalData[ticker] = {
+                'Market Cap': info.get('marketCap'),
+                'Dividend Yield': info.get('dividendYield'),
+                'Current Price': info.get('currentPrice'),
+                'Book Value': info.get('bookValue'),
+                'Face Value': info.get('faceValue', None),
+                'ROCE': info.get('returnOnAssets', None),
+                'ROE': info.get('returnOnEquity', None),
+                'P/E Ratio': info.get('forwardPE', info.get('trailingPE')),
+                'Tie-up Companies': info.get('companyOfficers', 'Not Available')
+            }
+
+    def display_additional_data(self):
+        for ticker, data in self.additionalData.items():
+            print(f"Data for {ticker}:")
+            for key, value in data.items():
+                print(f"  {key}: {value}")
+            print()
+
+# Usage
+stockTickers = ['ZYDUSWELL.NS']
+indexTicker = '^NSEI'  # Example index ticker for NIFTY 50
+screener = StockScreener(stockTickers, indexTicker)
+screener.ImportData()
+screener.FetchAdditionalData()
+screener.display_additional_data()
+
+# Set pandas display options to show all rows and columns
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+
+# Print the entire dataset
+print(screener.spotData)
